@@ -17,16 +17,28 @@ const createWindow = () => {
       preload: path.join(__dirname, "preload.js"),
     },
     autoHideMenuBar: true,
+    frame: false,
   });
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
-    );
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  const WM_INITMENU = 0x0116;
+  mainWindow.hookWindowMessage(WM_INITMENU, () => {
+    mainWindow.setEnabled(false);
+    mainWindow.setEnabled(true);
+  });
+
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('maximize')
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('unmaximize')
+  })
 
   // 注册一个'CommandOrControl+X' 快捷键监听器
   globalShortcut.register("CommandOrControl+F12", () => {
@@ -35,15 +47,20 @@ const createWindow = () => {
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
+
+  return mainWindow;
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  ipcMain.handle('ping', () => 'pong')
-  createWindow()
-})
+  const mainWindow = createWindow();
+  ipcMain.handle("ping", () => "pong");
+  ipcMain.handle("quit", () => app.quit());
+  ipcMain.handle("minimize", () => mainWindow.minimize());
+  ipcMain.handle("toogleMaximize", () => (mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize()));
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
